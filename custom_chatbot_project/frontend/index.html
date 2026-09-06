@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Chat</title>
+  <style>
+    :root {
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-subtle: #94a3b8;
+      --border-color: #e2e8f0;
+      --border-focus: #3b82f6;
+
+      --user-bubble-bg: #2563eb;
+      --user-bubble-text: #ffffff;
+
+      --assistant-bubble-bg: #f1f5f9;
+      --assistant-bubble-text: #0f172a;
+
+      --btn-primary: #2563eb;
+      --btn-primary-hover: #1d4ed8;
+
+      --error-bg: #fef2f2;
+      --error-text: #991b1b;
+      --error-border: #fecaca;
+
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Main Flex Layout */
+    .app-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: var(--bg-surface);
+      border-left: 1px solid var(--border-color);
+      border-right: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    /* Header */
+    .chat-header {
+      flex-shrink: 0;
+      height: 64px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      background-color: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      z-index: 20;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #10b981;
+      display: inline-block;
+      transition: background-color 0.2s ease;
+    }
+
+    .status-dot.offline {
+      background-color: #ef4444;
+    }
+
+    .header-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .turn-badge {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background-color: #f1f5f9;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-new-session {
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #2563eb;
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 6px 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-new-session:hover {
+      background-color: #f8fafc;
+      border-color: #94a3b8;
+    }
+
+    .btn-new-session:active {
+      transform: scale(0.98);
+    }
+
+    /* Error Notification Banner */
+    .error-banner {
+      display: none;
+      flex-shrink: 0;
+      background-color: var(--error-bg);
+      border-bottom: 1px solid var(--error-border);
+      color: var(--error-text);
+      padding: 8px 18px;
+      font-size: 0.825rem;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 15;
+    }
+
+    .error-banner.show {
+      display: flex;
+    }
+
+    .error-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-dismiss-error {
+      background: none;
+      border: none;
+      color: var(--error-text);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    /* Scrollable Message List */
+    .chat-messages {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 20px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background-color: var(--bg-page);
+      scroll-behavior: smooth;
+    }
+
+    /* Custom Scrollbar */
+    .chat-messages::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-messages::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background-color: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-muted);
+      max-width: 320px;
+      padding: 32px 16px;
+    }
+
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      background-color: #eff6ff;
+      color: #2563eb;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px auto;
+      border: 1px solid #dbeafe;
+    }
+
+    .empty-state h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .empty-state p {
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    /* Message Rows */
+    .message-row {
+      display: flex;
+      width: 100%;
+    }
+
+    .message-row.user {
+      justify-content: flex-end;
+    }
+
+    .message-row.assistant {
+      justify-content: flex-start;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .assistant-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background-color: #e2e8f0;
+      color: #2563eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 4px;
+      border: 1px solid #cbd5e1;
+    }
+
+    .bubble {
+      max-width: 78%;
+      padding: 12px 16px;
+      font-size: 0.935rem;
+      line-height: 1.5;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .message-row.user .bubble {
+      background-color: var(--user-bubble-bg);
+      color: var(--user-bubble-text);
+      border-radius: 18px 18px 4px 18px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+
+    .message-row.assistant .bubble {
+      background-color: var(--assistant-bubble-bg);
+      color: var(--assistant-bubble-text);
+      border-radius: 18px 18px 18px 4px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Typing Indicator */
+    .typing-container {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 12px 16px;
+    }
+
+    .typing-dot {
+      width: 7px;
+      height: 7px;
+      background-color: #64748b;
+      border-radius: 50%;
+      animation: pulseDot 1.4s infinite ease-in-out both;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes pulseDot {
+      0%, 80%, 100% {
+        transform: scale(0.7);
+        opacity: 0.4;
+      }
+      40% {
+        transform: scale(1.1);
+        opacity: 1;
+      }
+    }
+
+    /* Bottom Input Area */
+    .chat-footer {
+      flex-shrink: 0;
+      padding: 12px 20px 16px 20px;
+      background-color: var(--bg-surface);
+      border-top: 1px solid var(--border-color);
+    }
+
+    .input-box {
+      position: relative;
+      background-color: var(--bg-page);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      display: flex;
+      align-items: flex-end;
+      padding: 4px 6px 4px 14px;
+    }
+
+    .input-box:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+      background-color: #ffffff;
+    }
+
+    .chat-textarea {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 0.935rem;
+      line-height: 1.45;
+      color: var(--text-main);
+      padding: 8px 6px 8px 0;
+      resize: none;
+      min-height: 40px;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+
+    .chat-textarea::placeholder {
+      color: var(--text-subtle);
+    }
+
+    .btn-send {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background-color: var(--btn-primary);
+      color: #ffffff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-bottom: 2px;
+      transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+    }
+
+    .btn-send:hover:not(:disabled) {
+      background-color: var(--btn-primary-hover);
+    }
+
+    .btn-send:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .btn-send:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .footer-hints {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 6px;
+      padding: 0 4px;
+      font-size: 0.72rem;
+      color: var(--text-subtle);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-wrapper">
+
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="header-left">
+        <span class="status-dot" id="statusDot" title="Backend connected"></span>
+        <h1 class="header-title">Memory Chat</h1>
+      </div>
+      <div class="header-right">
+        <span class="turn-badge" id="turnBadge">Turn 0 / 10</span>
+        <button class="btn-new-session" id="newSessionBtn" type="button" title="Clear conversation">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New Session</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Error Banner -->
+    <div class="error-banner" id="errorBanner">
+      <div class="error-content">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span id="errorMessage">Backend not reachable.</span>
+      </div>
+      <button class="btn-dismiss-error" id="dismissErrorBtn" type="button">&times;</button>
+    </div>
+
+    <!-- Scrollable Message List -->
+    <main class="chat-messages" id="messagesContainer">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+        <h3>Welcome to Memory Chat</h3>
+        <p>Send a message below to start. Your chat history is remembered up to 10 turns.</p>
+      </div>
+    </main>
+
+    <!-- Bottom Input Area -->
+    <footer class="chat-footer">
+      <form id="chatForm" onsubmit="return false;">
+        <div class="input-box">
+          <textarea
+            class="chat-textarea"
+            id="messageInput"
+            placeholder="Message Memory Chat..."
+            rows="1"
+          ></textarea>
+          <button class="btn-send" id="sendBtn" type="button" aria-label="Send message">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5"></line>
+              <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </form>
+      <div class="footer-hints">
+        <span>Enter to send, Shift+Enter for new line</span>
+        <span>Session: demo</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    const API_BASE = "";
+    const SESSION_ID = "demo";
+    const MAX_TURNS = 10;
+
+    // DOM Elements
+    const messagesContainer = document.getElementById("messagesContainer");
+    const emptyState = document.getElementById("emptyState");
+    const messageInput = document.getElementById("messageInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const newSessionBtn = document.getElementById("newSessionBtn");
+    const turnBadge = document.getElementById("turnBadge");
+    const statusDot = document.getElementById("statusDot");
+    const errorBanner = document.getElementById("errorBanner");
+    const errorMessage = document.getElementById("errorMessage");
+    const dismissErrorBtn = document.getElementById("dismissErrorBtn");
+
+    let isSending = false;
+
+    // Update Turn Badge
+    function updateTurnCount(count) {
+      turnBadge.textContent = `Turn ${count} / ${MAX_TURNS}`;
+    }
+
+    // Update Connection Status
+    function setOnlineStatus(isOnline) {
+      if (isOnline) {
+        statusDot.classList.remove("offline");
+        statusDot.title = "Backend connected";
+      } else {
+        statusDot.classList.add("offline");
+        statusDot.title = "Backend offline or unreachable";
+      }
+    }
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorBanner.classList.add("show");
+    }
+
+    function hideError() {
+      errorBanner.classList.remove("show");
+    }
+
+    dismissErrorBtn.addEventListener("click", hideError);
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      });
+    }
+
+    function appendMessage(role, content) {
+      if (emptyState) {
+        emptyState.style.display = "none";
+      }
+
+      const row = document.createElement("div");
+      row.className = `message-row ${role}`;
+
+      if (role === "user") {
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = content;
+        row.appendChild(bubble);
+      } else {
+        const avatar = document.createElement("div");
+        avatar.className = "assistant-avatar";
+        avatar.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+            <circle cx="12" cy="5" r="2"></circle>
+            <path d="M12 7v4"></path>
+            <line x1="8" y1="16" x2="8.01" y2="16"></line>
+            <line x1="16" y1="16" x2="16.01" y2="16"></line>
+          </svg>
+        `;
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = content;
+
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+      }
+
+      messagesContainer.appendChild(row);
+      scrollToBottom();
+    }
+
+    function showTypingIndicator() {
+      removeTypingIndicator();
+
+      const row = document.createElement("div");
+      row.className = "message-row assistant";
+      row.id = "typingIndicator";
+
+      const avatar = document.createElement("div");
+      avatar.className = "assistant-avatar";
+      avatar.innerHTML = `
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+          <circle cx="12" cy="5" r="2"></circle>
+          <path d="M12 7v4"></path>
+        </svg>
+      `;
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble typing-container";
+      bubble.innerHTML = `
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+      `;
+
+      row.appendChild(avatar);
+      row.appendChild(bubble);
+      messagesContainer.appendChild(row);
+      scrollToBottom();
+    }
+
+    function removeTypingIndicator() {
+      const indicator = document.getElementById("typingIndicator");
+      if (indicator) {
+        indicator.remove();
+      }
+    }
+
+    function setInputLoading(loading) {
+      isSending = loading;
+      sendBtn.disabled = loading;
+      if (!loading) {
+        messageInput.focus();
+      }
+    }
+
+    // Auto-expand textarea
+    function autoResizeTextarea() {
+      messageInput.style.height = "auto";
+      messageInput.style.height = Math.min(messageInput.scrollHeight, 130) + "px";
+    }
+
+    messageInput.addEventListener("input", autoResizeTextarea);
+
+    // Keyboard support: Enter sends, Shift+Enter adds newline
+    messageInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        doSendMessage();
+      }
+    });
+
+    sendBtn.addEventListener("click", () => {
+      doSendMessage();
+    });
+
+    // --- API Calls ---
+
+    // 1. Load History
+    async function loadHistory() {
+      try {
+        const response = await fetch(`${API_BASE}/chat/${SESSION_ID}/history`);
+        if (!response.ok) {
+          throw new Error(`Server returned status ${response.status}`);
+        }
+        const data = await response.json();
+        setOnlineStatus(true);
+        hideError();
+
+        const history = data.history || [];
+        if (history.length > 0) {
+          if (emptyState) emptyState.style.display = "none";
+          messagesContainer.innerHTML = "";
+          history.forEach((item) => {
+            appendMessage(item.role, item.content);
+          });
+        }
+        updateTurnCount(Math.floor(history.length / 2));
+      } catch (err) {
+        console.warn("Failed to load history:", err);
+        setOnlineStatus(false);
+        showError("Backend not reachable at http://127.0.0.1:8000. Start backend with: uvicorn main:app --reload");
+      }
+    }
+
+    // 2. Send Message
+    async function doSendMessage() {
+      const text = messageInput.value.trim();
+      if (!text || isSending) return;
+
+      // 1. Add user message to UI immediately
+      appendMessage("user", text);
+      messageInput.value = "";
+      autoResizeTextarea();
+      hideError();
+
+      // 2. Show typing indicator
+      showTypingIndicator();
+      setInputLoading(true);
+
+      try {
+        const response = await fetch(`${API_BASE}/chat/${SESSION_ID}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ message: text }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.detail || `Error ${response.status}: ${response.statusText}`;
+          throw new Error(errMsg);
+        }
+
+        const data = await response.json();
+        setOnlineStatus(true);
+        removeTypingIndicator();
+        appendMessage("assistant", data.reply || "(No reply received)");
+        if (typeof data.turn_count === "number") {
+          updateTurnCount(data.turn_count);
+        }
+      } catch (err) {
+        console.error("Chat error:", err);
+        setOnlineStatus(false);
+        removeTypingIndicator();
+        showError(err.message || "Failed to reach backend.");
+      } finally {
+        setInputLoading(false);
+      }
+    }
+
+    // 3. New Session / Reset
+    async function handleNewSession() {
+      if (isSending) return;
+
+      const hasUserMessages = messagesContainer.querySelectorAll(".message-row").length > 0;
+      if (hasUserMessages && !confirm("Start a new session? This will clear current chat history.")) {
+        return;
+      }
+
+      setInputLoading(true);
+      try {
+        const response = await fetch(`${API_BASE}/chat/${SESSION_ID}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Reset failed: status ${response.status}`);
+        }
+
+        setOnlineStatus(true);
+        hideError();
+
+        // Clear UI
+        messagesContainer.innerHTML = "";
+        const newEmpty = document.createElement("div");
+        newEmpty.className = "empty-state";
+        newEmpty.id = "emptyState";
+        newEmpty.innerHTML = `
+          <div class="empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+          <h3>New Session Started</h3>
+          <p>Send a message below to begin a fresh conversation.</p>
+        `;
+        messagesContainer.appendChild(newEmpty);
+        updateTurnCount(0);
+      } catch (err) {
+        console.error("Reset error:", err);
+        showError("Failed to clear session on backend.");
+      } finally {
+        setInputLoading(false);
+      }
+    }
+
+    newSessionBtn.addEventListener("click", handleNewSession);
+
+    // Initial load
+    loadHistory();
+  </script>
+</body>
+</html>
