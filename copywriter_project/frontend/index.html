@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copy Transformer — AI Marketing Copywriter</title>
+  <style>
+    /* Reset & Base Variables */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-neutral: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-label: #334155;
+      --border-color: #e2e8f0;
+      --border-focus: #2563eb;
+      --primary-blue: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-active: #1e40af;
+      --primary-disabled: #93c5fd;
+      --error-bg: #fef2f2;
+      --error-border: #fecaca;
+      --error-accent: #ef4444;
+      --error-text: #991b1b;
+      --result-bg: #f8fafc;
+      --result-border: #e2e8f0;
+      --radius-card: 16px;
+      --radius-input: 10px;
+      --radius-btn: 10px;
+      --shadow-card: 0 10px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-neutral);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Centered Card */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      width: 100%;
+      max-width: 640px;
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      font-size: 0.9375rem;
+      color: var(--text-muted);
+    }
+
+    /* Form & Fields */
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .label-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-label);
+    }
+
+    .live-value {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--primary-blue);
+      background-color: #eff6ff;
+      border: 1px solid #dbeafe;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Text Input & Selects */
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 11px 14px;
+      font-size: 0.9375rem;
+      color: var(--text-main);
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-input);
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      font-family: inherit;
+    }
+
+    input[type="text"]::placeholder {
+      color: #94a3b8;
+    }
+
+    input[type="text"]:hover,
+    select:hover {
+      border-color: #cbd5e1;
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px 16px;
+      padding-right: 36px;
+    }
+
+    /* Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      outline: none;
+      margin: 8px 0;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    input[type="range"]:focus {
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary-blue);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+      transition: transform 0.1s ease, background-color 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: var(--primary-hover);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+      transform: scale(0.95);
+      background: var(--primary-active);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary-blue);
+      border: none;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+      transition: transform 0.1s ease, background-color 0.15s ease;
+    }
+
+    input[type="range"]::-moz-range-thumb:hover {
+      transform: scale(1.15);
+      background: var(--primary-hover);
+    }
+
+    /* Generate Button */
+    .btn-submit {
+      width: 100%;
+      background-color: var(--primary-blue);
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 13px 20px;
+      border: none;
+      border-radius: var(--radius-btn);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.15s ease, transform 0.05s ease;
+      font-family: inherit;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-submit:active:not(:disabled) {
+      background-color: var(--primary-active);
+      transform: scale(0.99);
+    }
+
+    .btn-submit:disabled {
+      background-color: var(--primary-disabled);
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Error Message Box */
+    .error-box {
+      background-color: var(--error-bg);
+      border: 1px solid var(--error-border);
+      border-left: 4px solid var(--error-accent);
+      border-radius: var(--radius-input);
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      color: var(--error-text);
+      font-size: 0.875rem;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .error-icon {
+      font-size: 1.125rem;
+      line-height: 1;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .error-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .error-text {
+      font-weight: 600;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .error-hint {
+      color: #b91c1c;
+      font-size: 0.8125rem;
+      font-weight: 500;
+    }
+
+    /* Result Area */
+    .result-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .result-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-label);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-copy {
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      color: var(--text-label);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+
+    .btn-copy:hover {
+      background-color: #f1f5f9;
+      border-color: #cbd5e1;
+      color: var(--text-main);
+    }
+
+    .btn-copy:active {
+      transform: scale(0.97);
+    }
+
+    .btn-copy.copied {
+      background-color: #f0fdf4;
+      border-color: #86efac;
+      color: #166534;
+    }
+
+    .result-box {
+      background-color: var(--result-bg);
+      border: 1px solid var(--result-border);
+      border-left: 4px solid var(--primary-blue);
+      border-radius: var(--radius-input);
+      padding: 18px 20px;
+      color: var(--text-main);
+      font-size: 0.9375rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Utility */
+    .hidden {
+      display: none !important;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .card {
+        padding: 24px 20px;
+      }
+      .header h1 {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <!-- 1. Header -->
+    <header class="header">
+      <h1>✍️ Automated Copywriting & Tone Transformer</h1>
+      <p>Generate platform-specific marketing copy from a product description.</p>
+    </header>
+
+    <!-- 2. Form Fields in Specified Order -->
+    <form id="copy-form" class="form" onsubmit="return false;">
+      <!-- Field 1: Text Input -->
+      <div class="form-group">
+        <label for="product_name">Product / Service Name</label>
+        <input
+          type="text"
+          id="product_name"
+          name="product_name"
+          placeholder="e.g. Wireless noise-cancelling earbuds"
+          autocomplete="off"
+        />
+      </div>
+
+      <!-- Field 2: Platform Dropdown -->
+      <div class="form-group">
+        <label for="platform">Platform</label>
+        <select id="platform" name="platform">
+          <option value="LinkedIn">LinkedIn</option>
+          <option value="Instagram" selected>Instagram</option>
+          <option value="Email">Email</option>
+        </select>
+      </div>
+
+      <!-- Field 3: Tone Dropdown -->
+      <div class="form-group">
+        <label for="tone">Tone</label>
+        <select id="tone" name="tone">
+          <option value="Professional">Professional</option>
+          <option value="Witty" selected>Witty</option>
+          <option value="Friendly">Friendly</option>
+          <option value="Bold">Bold</option>
+          <option value="Minimal">Minimal</option>
+        </select>
+      </div>
+
+      <!-- Field 4: Temperature Slider -->
+      <div class="form-group">
+        <div class="label-wrapper">
+          <label for="temperature">Temperature (creativity)</label>
+          <span class="live-value" id="temperature-value">0.7</span>
+        </div>
+        <input
+          type="range"
+          id="temperature"
+          name="temperature"
+          min="0"
+          max="1.5"
+          step="0.1"
+          value="0.7"
+        />
+      </div>
+
+      <!-- Field 5: Top_P Slider -->
+      <div class="form-group">
+        <div class="label-wrapper">
+          <label for="top_p">Top_P</label>
+          <span class="live-value" id="top_p-value">0.9</span>
+        </div>
+        <input
+          type="range"
+          id="top_p"
+          name="top_p"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.9"
+        />
+      </div>
+
+      <!-- 3. Generate Copy Button -->
+      <button type="button" id="generate-btn" class="btn-submit">
+        Generate Copy
+      </button>
+    </form>
+
+    <!-- 5. Error State -->
+    <div id="error-box" class="error-box hidden" role="alert">
+      <div class="error-icon" aria-hidden="true">⚠️</div>
+      <div class="error-content">
+        <div id="error-text" class="error-text"></div>
+        <div id="error-hint" class="error-hint">Is the backend running?</div>
+      </div>
+    </div>
+
+    <!-- 4. Result Area -->
+    <section id="result-area" class="result-area hidden" aria-live="polite">
+      <div class="result-header">
+        <span class="result-title">Generated Copy</span>
+        <button type="button" id="copy-btn" class="btn-copy">
+          <span id="copy-btn-icon">📋</span>
+          <span id="copy-btn-label">Copy to clipboard</span>
+        </button>
+      </div>
+      <div id="result-box" class="result-box"></div>
+    </section>
+  </main>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // DOM Elements
+      const productNameInput = document.getElementById("product_name");
+      const platformSelect = document.getElementById("platform");
+      const toneSelect = document.getElementById("tone");
+      const tempSlider = document.getElementById("temperature");
+      const tempVal = document.getElementById("temperature-value");
+      const topPSlider = document.getElementById("top_p");
+      const topPVal = document.getElementById("top_p-value");
+      const generateBtn = document.getElementById("generate-btn");
+      const errorBox = document.getElementById("error-box");
+      const errorText = document.getElementById("error-text");
+      const errorHint = document.getElementById("error-hint");
+      const resultArea = document.getElementById("result-area");
+      const resultBox = document.getElementById("result-box");
+      const copyBtn = document.getElementById("copy-btn");
+      const copyBtnIcon = document.getElementById("copy-btn-icon");
+      const copyBtnLabel = document.getElementById("copy-btn-label");
+
+      // Live Numeric Readouts for Sliders
+      tempSlider.addEventListener("input", (e) => {
+        tempVal.textContent = parseFloat(e.target.value).toFixed(1);
+      });
+
+      topPSlider.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        topPVal.textContent = Number.isInteger(val * 10) ? val.toFixed(1) : val.toFixed(2);
+      });
+
+      // Clear error state on typing in product name
+      productNameInput.addEventListener("input", () => {
+        if (!errorBox.classList.contains("hidden") && productNameInput.value.trim() !== "") {
+          hideError();
+        }
+      });
+
+      // Show/Hide Error
+      function showError(message, isBackendError = false) {
+        errorText.textContent = message;
+        if (isBackendError) {
+          errorHint.style.display = "block";
+        } else {
+          errorHint.style.display = "none";
+        }
+        errorBox.classList.remove("hidden");
+        resultArea.classList.add("hidden");
+      }
+
+      function hideError() {
+        errorBox.classList.add("hidden");
+      }
+
+      // Show Result
+      function showResult(copy) {
+        hideError();
+        resultBox.textContent = copy;
+        resultArea.classList.remove("hidden");
+      }
+
+      // Generate Copy Handler
+      async function handleGenerate() {
+        const productName = productNameInput.value.trim();
+
+        // Client-side Validation: if empty, show error state immediately without API call
+        if (!productName) {
+          showError("Product name cannot be empty.", false);
+          productNameInput.focus();
+          return;
+        }
+
+        // Prepare UI for in-flight request
+        hideError();
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner"></span><span>Generating...</span>';
+
+        const payload = {
+          product_name: productName,
+          platform: platformSelect.value,
+          tone: toneSelect.value,
+          temperature: parseFloat(tempSlider.value),
+          top_p: parseFloat(topPSlider.value)
+        };
+
+        try {
+          // Detect whether served from FastAPI directly or opened as a file / external dev server
+          const isServedFromBackend = window.location.protocol.startsWith("http") && (window.location.port === "8000");
+          const primaryUrl = isServedFromBackend ? "/generate" : "http://127.0.0.1:8000/generate";
+
+          let response;
+          try {
+            response = await fetch(primaryUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(payload)
+            });
+          } catch (fetchErr) {
+            // Fallback: if external / file mode and 127.0.0.1 failed, try localhost
+            if (!isServedFromBackend) {
+              response = await fetch("http://localhost:8000/generate", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+              });
+            } else {
+              throw fetchErr;
+            }
+          }
+
+          if (!response.ok) {
+            let detailMessage = "Failed to generate copy.";
+            try {
+              const errData = await response.json();
+              if (errData && errData.detail) {
+                if (typeof errData.detail === "string") {
+                  detailMessage = errData.detail;
+                } else if (Array.isArray(errData.detail)) {
+                  detailMessage = errData.detail.map(d => d.msg || JSON.stringify(d)).join(", ");
+                } else {
+                  detailMessage = JSON.stringify(errData.detail);
+                }
+              }
+            } catch (_) {
+              detailMessage = `Server returned status ${response.status} (${response.statusText || "Error"})`;
+            }
+            showError(detailMessage, true);
+            return;
+          }
+
+          const data = await response.json();
+          if (data && typeof data.copy === "string") {
+            showResult(data.copy);
+          } else {
+            showError("Unexpected response format from server.", true);
+          }
+        } catch (err) {
+          // Network failure or backend unreachable
+          showError(err.message || "Failed to reach backend server.", true);
+          const isFile = window.location.protocol === "file:";
+          const message = isFile
+            ? "Cannot reach backend. Open http://127.0.0.1:8000/ in your browser (not the raw HTML file)."
+            : (err.message || "Failed to reach backend server.");
+          showError(message, true);
+        } finally {
+          generateBtn.disabled = false;
+          generateBtn.innerHTML = "Generate Copy";
+        }
+      }
+
+      generateBtn.addEventListener("click", handleGenerate);
+
+      // Support Enter key in text input to submit
+      productNameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          handleGenerate();
+        }
+      });
+
+      // Copy to Clipboard with Feedback
+      let copyResetTimeout = null;
+      copyBtn.addEventListener("click", async () => {
+        const textToCopy = resultBox.textContent;
+        if (!textToCopy) return;
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(textToCopy);
+          } else {
+            // Fallback for non-secure contexts
+            const textarea = document.createElement("textarea");
+            textarea.value = textToCopy;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+          }
+
+          // Visual Feedback
+          copyBtn.classList.add("copied");
+          copyBtnIcon.textContent = "✓";
+          copyBtnLabel.textContent = "Copied!";
+
+          if (copyResetTimeout) clearTimeout(copyResetTimeout);
+          copyResetTimeout = setTimeout(() => {
+            copyBtn.classList.remove("copied");
+            copyBtnIcon.textContent = "📋";
+            copyBtnLabel.textContent = "Copy to clipboard";
+          }, 2000);
+        } catch (err) {
+          console.error("Failed to copy:", err);
+          copyBtnLabel.textContent = "Failed to copy";
+          setTimeout(() => {
+            copyBtnLabel.textContent = "Copy to clipboard";
+          }, 2000);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+
