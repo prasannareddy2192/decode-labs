@@ -58,10 +58,21 @@ toward combining all of them:
 
 ## About
 
-Generative AI Intern @ Decode Labs (completed) — built four applied
-AI/ML projects covering session state management, prompt engineering,
-inference parameter tuning, multimodal (text-to-image) API integration,
-and structured-output validation.
+## About
+
+I'm Prasanna, a final-year Information Technology engineering student
+aiming for a career in AI engineering. This repository documents my
+Generative AI Internship at Decode Labs, where I built four applied
+projects covering session state management, prompt engineering, inference
+parameter tuning, multimodal (text-to-image) API integration, and
+structured-output validation.
+
+Alongside Generative AI, I also have a computer vision background from a
+research internship at NIT Warangal, working on road anomaly detection
+(YOLOv8, RT-DETR, U-Net).
+
+**Author:** Sai Prasanna Gedela
+**GitHub:** [prasannareddy2192](https://github.com/prasannareddy2192)
 
 **Author:** Sai Prasanna Gedela
 **GitHub:** [prasannareddy2192](https://github.com/prasannareddy2192)
