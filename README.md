@@ -12,7 +12,7 @@ results.
 | 1 | [Custom AI Chatbot with Memory](./custom_chatbot_project/) | A chatbot that engineers "memory" on top of a stateless LLM using in-memory session state and FIFO sliding-window pruning. | FastAPI, Ollama |
 | 2 | [Automated Copywriting & Tone Transformer](./copywriter_project/) | Generates platform-specific marketing copy (LinkedIn, Instagram, Email) from a product description via dynamic prompt templates and tunable Temperature/Top_P. | FastAPI, Ollama |
 | 3 | [Multimodal Image Generation Studio](./image-studio-project/) | Translates natural-language prompts into digital artwork via a text-to-image API, with parameterized resolution/aspect ratio and a 3D animated frontend. | FastAPI, Hugging Face Inference Providers |
-| 4 | [Intelligent Code Reviewer & Explainer](./code-reviewer-project/) *(optional)* | A CLI tool that reviews a code file under a strict system-prompt format, producing a bug report and refactored code with syntax-highlighted terminal output. | Python, Ollama, rich |
+| 4 | [Intelligent Code Reviewer & Explainer](./code-reviewer-project/) | A CLI tool that reviews a code file under a strict system-prompt format, producing a bug report and refactored code with syntax-highlighted terminal output. | Python, Ollama, rich |
 
 ## What I Learned
 
