@@ -1,0 +1,10 @@
+{
+  "name": "user_config",
+  "settings": {
+    "max_retries": 3,
+    "timeout": 30,
+    "debug": true,
+    "allowed_roles": ["admin", "editor", "viewer"]
+  },
+  "default_role": "moderator"
+}
