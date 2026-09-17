@@ -1,0 +1,2326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Studio — Cinematic AI Generation</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Three.js from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       Design System Tokens & CSS Variables
+       ========================================================================== */
+    :root {
+      --bg-dark: #0a0a0f;
+      --bg-card: rgba(18, 17, 26, 0.72);
+      --bg-card-hover: rgba(26, 24, 38, 0.85);
+      --bg-dock: rgba(20, 18, 30, 0.88);
+      --bg-input: rgba(12, 11, 18, 0.75);
+      
+      --accent-violet: #8b5cf6;
+      --accent-violet-glow: rgba(139, 92, 246, 0.35);
+      --accent-magenta: #d946ef;
+      --accent-magenta-glow: rgba(217, 70, 239, 0.35);
+      --accent-cyan: #06b6d4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.35);
+      
+      --border-glass: rgba(255, 255, 255, 0.1);
+      --border-glass-hover: rgba(255, 255, 255, 0.22);
+      --border-active: rgba(139, 92, 246, 0.6);
+      
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+      --radius-pill: 9999px;
+      
+      --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-body: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --shadow-dock: 0 24px 48px -12px rgba(0, 0, 0, 0.85), 0 0 35px -5px rgba(139, 92, 246, 0.2);
+      --shadow-card: 0 20px 40px -15px rgba(0, 0, 0, 0.75);
+      --shadow-glow: 0 0 25px rgba(139, 92, 246, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+
+    /* ==========================================================================
+       Three.js 3D Background Canvas
+       ========================================================================== */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* Ambient radial vignettes to augment 3D depth */
+    .ambient-glow-top {
+      position: fixed;
+      top: -15%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80vw;
+      height: 45vh;
+      background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.12) 0%, rgba(217, 70, 239, 0.04) 50%, transparent 75%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .ambient-glow-bottom {
+      position: fixed;
+      bottom: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90vw;
+      height: 50vh;
+      background: radial-gradient(ellipse at center, rgba(217, 70, 239, 0.1) 0%, rgba(139, 92, 246, 0.04) 55%, transparent 80%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ==========================================================================
+       App Layout Container
+       ========================================================================== */
+    .studio-app {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 20px 28px 140px 28px;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ==========================================================================
+       Header Navigation
+       ========================================================================== */
+    .studio-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .studio-header:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 18px var(--accent-violet-glow);
+      position: relative;
+    }
+
+    .brand-icon-wrap::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.4), transparent);
+      pointer-events: none;
+    }
+
+    .brand-icon-wrap svg {
+      width: 22px;
+      height: 22px;
+      color: #fff;
+    }
+
+    .brand-text h1 {
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(to right, #ffffff 40%, #d0bcff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    .brand-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .brand-tag-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      transition: all 0.25s ease;
+    }
+
+    .status-badge .indicator {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .status-badge.offline .indicator {
+      background: #f59e0b;
+      box-shadow: 0 0 10px #f59e0b;
+    }
+
+    .header-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-pill);
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .header-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+
+    .header-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .badge-count {
+      background: var(--accent-violet);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+    }
+
+    /* ==========================================================================
+       Main Studio Stage / Canvas
+       ========================================================================== */
+    .studio-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 480px;
+      position: relative;
+    }
+
+    .stage-card {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      background: var(--bg-card);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      padding: 32px;
+      transition: border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    .stage-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-xl);
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02) 60%, rgba(139,92,246,0.15));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    /* ---------------- Empty State ---------------- */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      max-width: 620px;
+      animation: fadeIn 0.6s ease-out;
+      z-index: 2;
+    }
+
+    .aperture-visual {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.25) 0%, rgba(10, 10, 15, 0.1) 70%);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      box-shadow: 0 0 35px var(--accent-violet-glow), inset 0 0 20px rgba(139, 92, 246, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      position: relative;
+      animation: pulseOrb 4s infinite ease-in-out;
+    }
+
+    .aperture-visual svg {
+      width: 44px;
+      height: 44px;
+      color: #d0bcff;
+      filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+    }
+
+    .aperture-visual::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 1px dashed rgba(217, 70, 239, 0.3);
+      animation: rotateRing 20s linear infinite;
+    }
+
+    .empty-title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 10px;
+      background: linear-gradient(to right, #ffffff, #e2e8f0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .empty-desc {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .inspiration-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .insp-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-pill);
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .insp-chip:hover {
+      background: rgba(139, 92, 246, 0.15);
+      border-color: var(--accent-violet);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px var(--accent-violet-glow);
+    }
+
+    /* ---------------- Generating State ---------------- */
+    .generating-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      z-index: 2;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    .gen-scanner {
+      width: 140px;
+      height: 140px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+
+    .gen-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--accent-violet);
+      border-right-color: var(--accent-magenta);
+      animation: rotateRing 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      box-shadow: 0 0 25px var(--accent-violet-glow);
+    }
+
+    .gen-ring-inner {
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-bottom-color: var(--accent-cyan);
+      border-left-color: var(--accent-violet);
+      animation: rotateRingRev 1.8s linear infinite;
+    }
+
+    .gen-core {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #d946ef 0%, #8b5cf6 60%, transparent 100%);
+      filter: blur(4px);
+      animation: pulseCore 1.5s ease-in-out infinite alternate;
+    }
+
+    .gen-title {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .gen-status {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--accent-cyan);
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .gen-timer {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-glass);
+    }
+
+    /* ---------------- Rendered Gallery Grid ---------------- */
+    .rendered-stage {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      z-index: 2;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    .stage-hud {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    .hud-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hud-chip {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glass);
+      color: var(--text-secondary);
+    }
+
+    .hud-chip.highlight {
+      color: var(--accent-magenta);
+      border-color: rgba(217, 70, 239, 0.3);
+      background: rgba(217, 70, 239, 0.08);
+    }
+
+    .hud-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-pill);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .hud-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .hud-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .image-grid {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-grid.count-1 {
+      grid-template-columns: 1fr;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .image-grid.count-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .image-grid.count-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .image-grid.count-4 {
+      grid-template-columns: repeat(2, 1fr);
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .image-card {
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: #0d0c14;
+      border: 1px solid var(--border-glass);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+
+    .image-card:hover {
+      border-color: rgba(217, 70, 239, 0.45);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8), 0 0 30px var(--accent-magenta-glow);
+    }
+
+    .image-card img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      background: #0d0c14;
+    }
+
+    .image-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(10, 10, 15, 0.9) 0%, rgba(10, 10, 15, 0.3) 40%, transparent 100%);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      pointer-events: none;
+    }
+
+    .image-card:hover .image-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .overlay-top {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .overlay-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(18, 17, 26, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-glass);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .overlay-btn:hover {
+      background: var(--accent-violet);
+      border-color: var(--accent-violet);
+      transform: scale(1.1);
+      box-shadow: 0 0 15px var(--accent-violet-glow);
+    }
+
+    .overlay-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .overlay-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .overlay-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(0, 0, 0, 0.65);
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: var(--text-secondary);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .download-action-btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      background: linear-gradient(135deg, var(--accent-violet), var(--accent-magenta));
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 10px rgba(139, 92, 246, 0.4);
+    }
+
+    .download-action-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 15px rgba(217, 70, 239, 0.5);
+    }
+
+    /* ==========================================================================
+       Floating Command Dock (Bottom Center)
+       ========================================================================== */
+    .dock-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 48px);
+      max-width: 1040px;
+      z-index: 10;
+    }
+
+    .glass-dock {
+      background: var(--bg-dock);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-dock);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+
+    .glass-dock:focus-within {
+      border-color: rgba(139, 92, 246, 0.4);
+      box-shadow: 0 24px 50px -10px rgba(0, 0, 0, 0.9), 0 0 35px var(--accent-violet-glow);
+    }
+
+    /* Quick prompt bar */
+    .prompt-input-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      position: relative;
+    }
+
+    .prompt-textarea-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .prompt-textarea {
+      width: 100%;
+      min-height: 48px;
+      max-height: 140px;
+      padding: 12px 42px 12px 16px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.5;
+      resize: none;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .prompt-textarea:focus {
+      border-color: var(--accent-violet);
+      background: rgba(16, 14, 24, 0.85);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 15px rgba(139, 92, 246, 0.2);
+    }
+
+    .prompt-textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .prompt-tools-inside {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .icon-mini-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .icon-mini-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .icon-mini-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Controls row inside dock */
+    .dock-controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .dock-left-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pill-selector {
+      display: flex;
+      background: rgba(10, 10, 15, 0.6);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-pill);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .pill-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .pill-btn.active {
+      background: var(--accent-violet);
+      color: #fff;
+      box-shadow: 0 0 12px var(--accent-violet-glow);
+    }
+
+    .ratio-glyph {
+      display: inline-block;
+      border: 1px solid currentColor;
+      border-radius: 2px;
+      opacity: 0.85;
+    }
+    .ratio-1-1 { width: 10px; height: 10px; }
+    .ratio-16-9 { width: 13px; height: 7px; }
+    .ratio-9-16 { width: 7px; height: 13px; }
+    .ratio-4-3 { width: 11px; height: 8px; }
+
+    .tool-chip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-pill);
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tool-chip-btn:hover {
+      background: rgba(139, 92, 246, 0.12);
+      border-color: rgba(139, 92, 246, 0.4);
+      color: #d0bcff;
+    }
+
+    .tool-chip-btn svg {
+      width: 14px;
+      height: 14px;
+      color: var(--accent-magenta);
+    }
+
+    /* Master Generate Button */
+    .master-generate-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px 28px;
+      border-radius: var(--radius-pill);
+      background: linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%);
+      border: none;
+      color: #ffffff;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      box-shadow: 0 4px 25px var(--accent-violet-glow), 0 0 20px var(--accent-magenta-glow);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    .master-generate-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-pill);
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.4), transparent);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .master-generate-btn:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 30px rgba(139, 92, 246, 0.5), 0 0 30px rgba(217, 70, 239, 0.5);
+    }
+
+    .master-generate-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .master-generate-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      filter: grayscale(40%);
+    }
+
+    .master-generate-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .kbd-shortcut {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      opacity: 0.8;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ==========================================================================
+       Slide-out History Drawer
+       ========================================================================== */
+    .history-drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .history-drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .history-drawer {
+      position: fixed;
+      top: 0;
+      right: -420px;
+      width: 400px;
+      max-width: 90vw;
+      height: 100vh;
+      background: rgba(16, 15, 23, 0.95);
+      backdrop-filter: blur(28px);
+      border-left: 1px solid var(--border-glass);
+      z-index: 51;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.8);
+      transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+    }
+
+    .history-drawer.open {
+      right: 0;
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-glass);
+    }
+
+    .drawer-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .drawer-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      padding: 6px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .drawer-close-btn:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-right: 4px;
+    }
+
+    .history-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .history-item:hover {
+      border-color: rgba(139, 92, 246, 0.4);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .history-item-thumb {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      display: block;
+      background: #000;
+    }
+
+    .history-item-info {
+      padding: 12px;
+    }
+
+    .history-item-prompt {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .history-item-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ==========================================================================
+       Lightbox Fullscreen Modal
+       ========================================================================== */
+    .lightbox-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 8, 0.94);
+      backdrop-filter: blur(25px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .lightbox-modal.open {
+      display: flex;
+      opacity: 1;
+    }
+
+    .lightbox-content {
+      position: relative;
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .lightbox-img {
+      max-width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: var(--radius-md);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 35px var(--accent-violet-glow);
+      border: 1px solid var(--border-glass);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: -45px;
+      right: 0;
+      background: transparent;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+
+    .lightbox-close:hover {
+      opacity: 1;
+    }
+
+    .lightbox-footer {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* ==========================================================================
+       Toast Notifications
+       ========================================================================== */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: rgba(20, 18, 28, 0.95);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      font-size: 13px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      transform: translateX(120%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.error {
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+    .toast.success {
+      border-color: rgba(16, 185, 129, 0.5);
+    }
+
+    /* ==========================================================================
+       Animations
+       ========================================================================== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes rotateRing {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes rotateRingRev {
+      from { transform: rotate(360deg); }
+      to { transform: rotate(0deg); }
+    }
+
+    @keyframes pulseOrb {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 35px var(--accent-violet-glow); }
+      50% { transform: scale(1.06); box-shadow: 0 0 50px rgba(217, 70, 239, 0.45); }
+    }
+
+    @keyframes pulseCore {
+      0% { transform: scale(0.85); opacity: 0.7; }
+      100% { transform: scale(1.15); opacity: 1; }
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      .studio-app {
+        padding: 14px 14px 160px 14px;
+      }
+      .dock-container {
+        width: calc(100% - 24px);
+        bottom: 12px;
+      }
+      .image-grid.count-2,
+      .image-grid.count-3,
+      .image-grid.count-4 {
+        grid-template-columns: 1fr;
+      }
+      .stage-card {
+        padding: 20px;
+        min-height: 440px;
+      }
+      .dock-controls-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .master-generate-btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Three.js 3D Background Canvas -->
+  <canvas id="bg-canvas"></canvas>
+  <div class="ambient-glow-top"></div>
+  <div class="ambient-glow-bottom"></div>
+
+  <!-- Main App Layout -->
+  <div class="studio-app">
+    
+    <!-- Top Header -->
+    <header class="studio-header">
+      <div class="brand-section">
+        <div class="brand-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Image Studio</h1>
+          <div class="brand-tag">
+            <span class="brand-tag-dot"></span>
+            <span>FLUX.1-schnell</span>
+            <span style="opacity: 0.4;">|</span>
+            <span style="color: #a78bfa;">PRO STUDIO</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div id="backend-status" class="status-badge" title="Checks connection to FastAPI backend">
+          <span class="indicator"></span>
+          <span id="backend-status-text">Connecting...</span>
+        </div>
+
+        <button id="history-btn" class="header-btn" title="View Generation History">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span>History</span>
+          <span id="history-count" class="badge-count">0</span>
+        </button>
+
+        <button id="demo-mode-toggle" class="header-btn" title="Toggle Demo Sample Mode when backend is offline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span id="demo-toggle-text">Demo Artwork</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Stage -->
+    <main class="studio-stage">
+      <div class="stage-card">
+
+        <!-- 1. Idle Empty State -->
+        <div id="empty-state" class="empty-state">
+          <div class="aperture-visual">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="14.31" y1="8" x2="20.05" y2="17.94"></line>
+              <line x1="9.69" y1="8" x2="21.17" y2="8"></line>
+              <line x1="7.38" y1="12" x2="13.12" y2="2.06"></line>
+              <line x1="9.69" y1="16" x2="3.95" y2="6.06"></line>
+              <line x1="14.31" y1="16" x2="2.83" y2="16"></line>
+              <line x1="16.62" y1="12" x2="10.88" y2="21.94"></line>
+            </svg>
+          </div>
+          <h2 class="empty-title">Bring Latent Worlds to Life</h2>
+          <p class="empty-desc">
+            Enter a creative prompt below, choose your aspect ratio, and ignite the FLUX.1 diffusion engine. Floating 3D particles react dynamically as you explore.
+          </p>
+          <div class="inspiration-pills">
+            <div class="insp-chip" data-prompt="Dark surreal neon cyberpunk architectural garden with glowing purple bioluminescent flora, glass structures, reflective water puddles, cinematic moonlight, octane render 8k.">
+              <span>✨ Cyber Garden Neon</span>
+            </div>
+            <div class="insp-chip" data-prompt="Hyperrealistic cinematic fashion photography of a futuristic model wearing liquid chrome iridescent haute couture armor, holographic neon magenta backlight, dark studio backdrop, vogue editorial.">
+              <span>🔮 Liquid Chrome Couture</span>
+            </div>
+            <div class="insp-chip" data-prompt="Cinematic sci-fi portrait of an ethereal biomechanical android goddess with translucent glass skin, glowing fiber optic neural filaments in neon violet, magenta, and cyan hues, atmospheric volumetric fog, high fidelity, 8k resolution, cinematic lighting, masterpiece rendering.">
+              <span>⚡ Biomechanical Android</span>
+            </div>
+            <div class="insp-chip" data-prompt="Vast cinematic cosmic observatory perched on the edge of a dying star, crystalline monolithic architecture, deep violet nebulae swirling in the void, highly detailed, photorealistic.">
+              <span>🪐 Cosmic Observatory</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Generating State -->
+        <div id="generating-state" class="generating-state">
+          <div class="gen-scanner">
+            <div class="gen-ring"></div>
+            <div class="gen-ring-inner"></div>
+            <div class="gen-core"></div>
+          </div>
+          <h2 class="gen-title">Synthesizing Diffusion Layers...</h2>
+          <div class="gen-status">
+            <span class="brand-tag-dot"></span>
+            <span id="gen-status-text">Sampling latents via FLUX.1-schnell</span>
+          </div>
+          <div class="gen-timer">
+            Elapsed: <span id="gen-timer-val">0.0s</span>
+          </div>
+        </div>
+
+        <!-- 3. Rendered Output State -->
+        <div id="rendered-stage" class="rendered-stage">
+          <div class="stage-hud">
+            <div class="hud-meta">
+              <span class="hud-chip highlight" id="rendered-model-chip">FLUX.1-schnell</span>
+              <span class="hud-chip" id="rendered-ratio-chip">16:9</span>
+              <span class="hud-chip" id="rendered-time-chip">0.0s</span>
+            </div>
+            <div class="hud-actions">
+              <button id="copy-prompt-btn" class="hud-btn" title="Copy Prompt text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy Prompt</span>
+              </button>
+              <button id="clear-stage-btn" class="hud-btn" title="Clear Canvas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Reset Stage</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="image-grid" class="image-grid count-1">
+            <!-- Dynamically populated image cards -->
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Floating Glassmorphic Command Dock -->
+    <div class="dock-container">
+      <div class="glass-dock">
+        <!-- Input Row -->
+        <div class="prompt-input-row">
+          <div class="prompt-textarea-wrap">
+            <textarea
+              id="prompt-input"
+              class="prompt-textarea"
+              placeholder="Describe your creative vision in rich visual detail..."
+              rows="1"
+            ></textarea>
+            <div class="prompt-tools-inside">
+              <button id="clear-prompt-btn" class="icon-mini-btn" title="Clear prompt" style="display: none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="dock-controls-row">
+          <div class="dock-left-controls">
+            <!-- Aspect Ratio Selector -->
+            <div class="control-group">
+              <span class="control-label">Aspect</span>
+              <div class="pill-selector" id="ratio-selector">
+                <button class="pill-btn" data-ratio="1:1" title="Square (1024x1024)">
+                  <span class="ratio-glyph ratio-1-1"></span>
+                  <span>1:1</span>
+                </button>
+                <button class="pill-btn active" data-ratio="16:9" title="Cinema Widescreen (1344x768)">
+                  <span class="ratio-glyph ratio-16-9"></span>
+                  <span>16:9</span>
+                </button>
+                <button class="pill-btn" data-ratio="9:16" title="Portrait Story (768x1344)">
+                  <span class="ratio-glyph ratio-9-16"></span>
+                  <span>9:16</span>
+                </button>
+                <button class="pill-btn" data-ratio="4:3" title="Classic Frame (1152x896)">
+                  <span class="ratio-glyph ratio-4-3"></span>
+                  <span>4:3</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Count Selector -->
+            <div class="control-group">
+              <span class="control-label">Count</span>
+              <div class="pill-selector" id="count-selector">
+                <button class="pill-btn active" data-count="1">1</button>
+                <button class="pill-btn" data-count="2">2</button>
+                <button class="pill-btn" data-count="3">3</button>
+                <button class="pill-btn" data-count="4">4</button>
+              </div>
+            </div>
+
+            <!-- Prompt Enhancer / Surprise Tools -->
+            <div class="control-group">
+              <button id="polish-prompt-btn" class="tool-chip-btn" title="Enhance prompt with cinematic styling">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                <span>✨ Polish</span>
+              </button>
+
+              <button id="random-prompt-btn" class="tool-chip-btn" title="Surprise with random artistic concept">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 8h.01"></path>
+                  <path d="M8 8h.01"></path>
+                  <path d="M8 16h.01"></path>
+                  <path d="M16 16h.01"></path>
+                  <path d="M12 12h.01"></path>
+                </svg>
+                <span>🎲 Surprise</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Master Action -->
+          <button id="generate-btn" class="master-generate-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span id="generate-btn-text">Generate</span>
+            <span class="kbd-shortcut">↵</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- History Slide-out Drawer -->
+  <div id="history-overlay" class="history-drawer-overlay"></div>
+  <aside id="history-drawer" class="history-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Studio History</span>
+      </div>
+      <button id="close-drawer-btn" class="drawer-close-btn" title="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div id="history-list" class="history-list">
+      <p style="color: var(--text-muted); font-size: 13px; text-align: center; margin-top: 40px;">
+        No generations yet in this session.
+      </p>
+    </div>
+  </aside>
+
+  <!-- Fullscreen Lightbox Modal -->
+  <div id="lightbox-modal" class="lightbox-modal">
+    <div class="lightbox-content">
+      <button id="lightbox-close-btn" class="lightbox-close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        <span>ESC to Close</span>
+      </button>
+      <img id="lightbox-img" class="lightbox-img" src="" alt="Fullscreen preview" />
+      <div class="lightbox-footer">
+        <button id="lightbox-download-btn" class="download-action-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download Ultra HD</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ==========================================================================
+       Client-Side JavaScript Application Logic
+       ========================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ========================================================================
+         1. GPU-Light Three.js 3D Particle Field with Mouse Parallax
+         ======================================================================== */
+      let scene, camera, renderer, particlesMesh;
+      let mouseX = 0, mouseY = 0;
+      let targetX = 0, targetY = 0;
+      let isTabVisible = true;
+      let animFrameId = null;
+
+      const PARTICLE_COUNT = 900;
+      const canvas = document.getElementById('bg-canvas');
+
+      function initThreeJS() {
+        if (typeof THREE === 'undefined') {
+          console.warn('Three.js failed to load. 3D background disabled.');
+          return;
+        }
+
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0a0a0f, 0.0018);
+
+        camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 1, 2000);
+        camera.position.z = 700;
+
+        // Particle buffer geometry
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(PARTICLE_COUNT * 3);
+        const colors = new Float32Array(PARTICLE_COUNT * 3);
+        const scales = new Float32Array(PARTICLE_COUNT);
+
+        // Palette: Deep Violet (#8b5cf6), Magenta (#d946ef), Cyan (#06b6d4), White Starlight
+        const palette = [
+          new THREE.Color(0x8b5cf6), // violet
+          new THREE.Color(0xd946ef), // magenta
+          new THREE.Color(0x06b6d4), // cyan
+          new THREE.Color(0xffffff), // white accent
+          new THREE.Color(0x3b82f6), // blue
+        ];
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          const i3 = i * 3;
+          // Disperse particles across a wide 3D cylinder/volume
+          positions[i3] = (Math.random() - 0.5) * 1600;
+          positions[i3 + 1] = (Math.random() - 0.5) * 1200;
+          positions[i3 + 2] = (Math.random() - 0.5) * 1200;
+
+          const chosenColor = palette[Math.floor(Math.random() * palette.length)];
+          colors[i3] = chosenColor.r;
+          colors[i3 + 1] = chosenColor.g;
+          colors[i3 + 2] = chosenColor.b;
+
+          scales[i] = Math.random() * 4 + 2;
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        // Generate soft radial glow particle texture via offscreen 2D canvas
+        const particleTexture = createCircleTexture();
+
+        const material = new THREE.PointsMaterial({
+          size: 7,
+          vertexColors: true,
+          map: particleTexture,
+          transparent: true,
+          opacity: 0.75,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          sizeAttenuation: true
+        });
+
+        particlesMesh = new THREE.Points(geometry, material);
+        scene.add(particlesMesh);
+
+        // Renderer setup
+        renderer = new THREE.WebGLRenderer({
+          canvas: canvas,
+          alpha: true,
+          antialias: false, // keep it GPU-light
+          powerPreference: 'high-performance'
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        // Mouse Parallax event listeners
+        window.addEventListener('mousemove', onMouseMove, { passive: true });
+        window.addEventListener('resize', onWindowResize, { passive: true });
+
+        // Tab visibility listener: pause rendering when tab isn't visible
+        document.addEventListener('visibilitychange', () => {
+          isTabVisible = !document.hidden;
+          if (isTabVisible && !animFrameId) {
+            animateParticles();
+          }
+        });
+
+        animateParticles();
+      }
+
+      function createCircleTexture() {
+        const size = 64;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.7)');
+        gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.15)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function onMouseMove(event) {
+        // Normalize mouse coordinates (-1 to 1)
+        mouseX = (event.clientX - window.innerWidth / 2);
+        mouseY = (event.clientY - window.innerHeight / 2);
+      }
+
+      function onWindowResize() {
+        if (!camera || !renderer) return;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      let clock = new THREE.Clock();
+
+      function animateParticles() {
+        if (!isTabVisible) {
+          animFrameId = null;
+          return;
+        }
+
+        animFrameId = requestAnimationFrame(animateParticles);
+
+        const elapsedTime = clock.getElapsedTime();
+
+        // Parallax smooth interpolation (lerp)
+        targetX += (mouseX - targetX) * 0.035;
+        targetY += (mouseY - targetY) * 0.035;
+
+        // Subtle camera and mesh tilt
+        camera.position.x = targetX * 0.35;
+        camera.position.y = -targetY * 0.35;
+        camera.lookAt(scene.position);
+
+        // Constant gentle particle rotation and wave drifting
+        if (particlesMesh) {
+          particlesMesh.rotation.y = elapsedTime * 0.025;
+          particlesMesh.rotation.x = Math.sin(elapsedTime * 0.015) * 0.1;
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      initThreeJS();
+
+      /* ========================================================================
+         2. Application State & Elements
+         ======================================================================== */
+      const state = {
+        prompt: '',
+        aspectRatio: '16:9',
+        count: 1,
+        isGenerating: false,
+        backendOnline: false,
+        apiBaseUrl: window.location.origin.startsWith('http') ? window.location.origin : 'http://127.0.0.1:8000',
+        activeImages: [],
+        history: [],
+        demoArtworkMode: false
+      };
+
+      // Sample concept artworks for demo preview / offline testing
+      const DEMO_SAMPLES = [
+        {
+          url: 'https://lh3.googleusercontent.com/aida/AEtjO1XtkxWWcVxbEEfIB-2CC3dxNOCtWoYNu4qZLN0Z-G_2cthXuNdnRRrD1WkqTXfu9avjFfY94zSq0yKdo346RFg4Lu40H3ymgRt_a8MH9nNuU6V0g8i0N_L-Xui_o1RFCTiSoau71xQPG3fUhjwcgNE1bHjm4JnNUNXeXD5Ig0uDCw8p284wDYh20FRLphBbE7evEc2MZXlY-k77-mLp1H_jJQseiAMbutIowsDnlVjq573kM6vr0_ZH87Pa',
+          prompt: 'Cinematic sci-fi portrait of an ethereal biomechanical android goddess with translucent glass skin, glowing fiber optic neural filaments in neon violet and magenta.',
+          aspectRatio: '16:9'
+        },
+        {
+          url: 'https://lh3.googleusercontent.com/aida/AEtjO1VNHeSLDOLN4b-A4dg9fz9gOuakkQghl1liipeDspt4vxmYlwWJZKjygCpU9qnkC4HxWcYUF5gSJk1xqRJfghzTAiby8xdy5VMrTXIDXcnaKKieVCD0fLHdh9ajFs0hQYSidSZDumy9r02i5VHxo59rilJ_gpd1aKXIDc7LgSKJcw323SgGOwaVlvH5PiIwiruUD8wHx96xmZaJIFc6rTHHaCtHyQS25puUNskNWU0CEqAx9J6eWqKnzWUY',
+          prompt: 'Dark surreal neon cyberpunk architectural garden with glowing purple bioluminescent flora, glass structures, reflective water puddles, octane render 8k.',
+          aspectRatio: '1:1'
+        },
+        {
+          url: 'https://lh3.googleusercontent.com/aida/AEtjO1XzxkEZ5VPLKiIOJXxtn7FrT05aiQcdjAz9mJS41ICAUOq2fBr4BTJOkAgZ2iP3v2kltwubzJZl7-mxNcjjuikVWzytu5aPr1QnWtIm6F_XLROTavp5kgI2WI661tkXPqbJPO_w3Jc3ezun7tBPxw3v53FSceeG9ZQ513N4P5Ri7-pE6UifADb-O2Hf6N3hyhV0B-p7f2SbQ6xxW2ceFQ6gNsqQiBhwkCrO38ouI3wAwwC2uGewvbuDz64a',
+          prompt: 'Hyperrealistic cinematic fashion photography of a futuristic model wearing liquid chrome iridescent haute couture armor, holographic neon magenta backlight.',
+          aspectRatio: '9:16'
+        }
+      ];
+
+      // Curated random artistic prompts
+      const RANDOM_PROMPTS = [
+        "Cinematic sci-fi portrait of an ethereal biomechanical android goddess with translucent glass skin, glowing fiber optic neural filaments in neon violet, magenta, and cyan hues, atmospheric volumetric fog, high fidelity, 8k resolution.",
+        "Dark surreal neon cyberpunk architectural garden with glowing purple bioluminescent flora, glass structures, reflective water puddles, cinematic moonlight, octane render 8k.",
+        "Hyperrealistic cinematic fashion photography of a futuristic model wearing liquid chrome iridescent haute couture armor, holographic neon magenta backlight, dark studio backdrop, vogue editorial.",
+        "Monolithic Brutalist black obsidian temple floating in deep space near a luminescent violet nebula, sharp geometric angles, volumetric atmospheric lighting, cinematic, 8k, Unreal Engine 5.",
+        "Macro photography of an intricate crystalline mechanical butterfly with iridescent glass wings, golden gears, glowing cyan internal circuitry, soft studio bokeh, photorealistic.",
+        "A cyberpunk street in Tokyo during heavy neon rain, reflections on wet asphalt, holographic billboards in magenta and ultraviolet, cinematic depth of field, 35mm photograph."
+      ];
+
+      // DOM Elements
+      const promptInput = document.getElementById('prompt-input');
+      const clearPromptBtn = document.getElementById('clear-prompt-btn');
+      const generateBtn = document.getElementById('generate-btn');
+      const generateBtnText = document.getElementById('generate-btn-text');
+      const polishPromptBtn = document.getElementById('polish-prompt-btn');
+      const randomPromptBtn = document.getElementById('random-prompt-btn');
+      const ratioSelector = document.getElementById('ratio-selector');
+      const countSelector = document.getElementById('count-selector');
+
+      const emptyState = document.getElementById('empty-state');
+      const generatingState = document.getElementById('generating-state');
+      const renderedStage = document.getElementById('rendered-stage');
+      const imageGrid = document.getElementById('image-grid');
+
+      const backendStatusBadge = document.getElementById('backend-status');
+      const backendStatusText = document.getElementById('backend-status-text');
+      const genTimerVal = document.getElementById('gen-timer-val');
+      const genStatusText = document.getElementById('gen-status-text');
+
+      const renderedModelChip = document.getElementById('rendered-model-chip');
+      const renderedRatioChip = document.getElementById('rendered-ratio-chip');
+      const renderedTimeChip = document.getElementById('rendered-time-chip');
+      const copyPromptBtn = document.getElementById('copy-prompt-btn');
+      const clearStageBtn = document.getElementById('clear-stage-btn');
+
+      const historyBtn = document.getElementById('history-btn');
+      const historyCountBadge = document.getElementById('history-count');
+      const historyDrawer = document.getElementById('history-drawer');
+      const historyOverlay = document.getElementById('history-overlay');
+      const closeDrawerBtn = document.getElementById('close-drawer-btn');
+      const historyList = document.getElementById('history-list');
+
+      const lightboxModal = document.getElementById('lightbox-modal');
+      const lightboxImg = document.getElementById('lightbox-img');
+      const lightboxCloseBtn = document.getElementById('lightbox-close-btn');
+      const lightboxDownloadBtn = document.getElementById('lightbox-download-btn');
+      const demoToggleBtn = document.getElementById('demo-mode-toggle');
+
+      /* ========================================================================
+         3. Backend Health Ping & Connectivity Detection
+         ======================================================================== */
+      async function checkBackendHealth() {
+        try {
+          // Check current origin first, fallback to 127.0.0.1:8000
+          let testUrl = `${state.apiBaseUrl}/health`;
+          let res = await fetch(testUrl, { method: 'GET', signal: AbortSignal.timeout(2500) });
+          
+          if (!res.ok && state.apiBaseUrl !== 'http://127.0.0.1:8000') {
+            testUrl = 'http://127.0.0.1:8000/health';
+            res = await fetch(testUrl, { method: 'GET', signal: AbortSignal.timeout(2500) });
+            if (res.ok) state.apiBaseUrl = 'http://127.0.0.1:8000';
+          }
+
+          if (res.ok) {
+            state.backendOnline = true;
+            backendStatusBadge.classList.remove('offline');
+            backendStatusText.textContent = 'Backend Online';
+            backendStatusBadge.title = `Connected to FastAPI server at ${state.apiBaseUrl}`;
+          } else {
+            throw new Error('Health check returned non-200');
+          }
+        } catch (err) {
+          state.backendOnline = false;
+          backendStatusBadge.classList.add('offline');
+          backendStatusText.textContent = 'Local Standalone';
+          backendStatusBadge.title = 'FastAPI server not responding at localhost:8000. Start backend with `uvicorn main:app --reload` or click "Demo Artwork" to test features.';
+        }
+      }
+
+      // Check on startup and repeat every 15s
+      checkBackendHealth();
+      setInterval(checkBackendHealth, 15000);
+
+      /* ========================================================================
+         4. Prompt & Control Interactions
+         ======================================================================== */
+      // Auto-grow textarea
+      promptInput.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+        clearPromptBtn.style.display = this.value.trim() ? 'flex' : 'none';
+        state.prompt = this.value;
+      });
+
+      clearPromptBtn.addEventListener('click', () => {
+        promptInput.value = '';
+        promptInput.style.height = '48px';
+        clearPromptBtn.style.display = 'none';
+        state.prompt = '';
+        promptInput.focus();
+      });
+
+      // Aspect ratio selector
+      ratioSelector.querySelectorAll('.pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          ratioSelector.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.aspectRatio = btn.dataset.ratio;
+        });
+      });
+
+      // Count selector
+      countSelector.querySelectorAll('.pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          countSelector.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          state.count = parseInt(btn.dataset.count, 10);
+        });
+      });
+
+      // Inspiration chips
+      document.querySelectorAll('.insp-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const prompt = chip.dataset.prompt;
+          promptInput.value = prompt;
+          promptInput.dispatchEvent(new Event('input'));
+          promptInput.focus();
+          showToast('Inspiration prompt loaded');
+        });
+      });
+
+      // Polish Prompt button
+      polishPromptBtn.addEventListener('click', () => {
+        let val = promptInput.value.trim();
+        if (!val) {
+          val = "Futuristic neon architectural landscape";
+        }
+        const enhancements = [
+          "cinematic lighting",
+          "volumetric atmosphere",
+          "high dynamic range",
+          "hyperrealistic 8k resolution",
+          "octane render masterpiece",
+          "subtle film grain"
+        ];
+        // Append missing tags
+        const toAdd = enhancements.filter(tag => !val.toLowerCase().includes(tag)).slice(0, 3);
+        if (toAdd.length > 0) {
+          promptInput.value = `${val}, ${toAdd.join(', ')}`;
+        } else {
+          promptInput.value = `${val}, breathtaking depth of field, dramatic shadows`;
+        }
+        promptInput.dispatchEvent(new Event('input'));
+        showToast('✨ Enhanced prompt with studio keywords');
+      });
+
+      // Random / Surprise Prompt button
+      randomPromptBtn.addEventListener('click', () => {
+        const randomIndex = Math.floor(Math.random() * RANDOM_PROMPTS.length);
+        promptInput.value = RANDOM_PROMPTS[randomIndex];
+        promptInput.dispatchEvent(new Event('input'));
+        promptInput.focus();
+        showToast('🎲 Random concept loaded');
+      });
+
+      // Shortcut: Cmd/Ctrl + Enter to trigger generation
+      window.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+          e.preventDefault();
+          if (!state.isGenerating) {
+            triggerGeneration();
+          }
+        }
+        if (e.key === 'Escape') {
+          closeLightbox();
+          closeHistoryDrawer();
+        }
+      });
+
+      /* ========================================================================
+         5. Image Generation Flow (FastAPI + Demo Mode Support)
+         ======================================================================== */
+      generateBtn.addEventListener('click', () => {
+        triggerGeneration();
+      });
+
+      let timerInterval = null;
+      let startTime = 0;
+
+      async function triggerGeneration() {
+        const currentPrompt = promptInput.value.trim();
+        if (!currentPrompt) {
+          promptInput.focus();
+          showToast('Please enter a creative prompt first', 'error');
+          return;
+        }
+
+        state.isGenerating = true;
+        setStageState('generating');
+        generateBtn.disabled = true;
+        generateBtnText.textContent = 'Generating...';
+
+        // Start elapsed timer
+        startTime = performance.now();
+        genTimerVal.textContent = '0.0s';
+        const statuses = [
+          'Connecting to FLUX.1 neural backbone...',
+          'Sampling latents at target aspect ratio...',
+          'Diffusing fine textures and geometry...',
+          'Encoding high-fidelity PNG raster...'
+        ];
+        let statusIndex = 0;
+        genStatusText.textContent = statuses[0];
+
+        timerInterval = setInterval(() => {
+          const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+          genTimerVal.textContent = `${elapsed}s`;
+          if (Math.floor(elapsed) % 2 === 0 && statusIndex < statuses.length - 1) {
+            statusIndex = Math.min(statusIndex + 1, statuses.length - 1);
+            genStatusText.textContent = statuses[statusIndex];
+          }
+        }, 100);
+
+        try {
+          let generatedImages = [];
+          const elapsedSeconds = () => ((performance.now() - startTime) / 1000).toFixed(1);
+
+          // If backend is online, call FastAPI /generate endpoint
+          if (state.backendOnline) {
+            const response = await fetch(`${state.apiBaseUrl}/generate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: currentPrompt,
+                aspect_ratio: state.aspectRatio,
+                count: state.count
+              })
+            });
+
+            if (!response.ok) {
+              const errJson = await response.json().catch(() => ({}));
+              throw new Error(errJson.detail || `Server returned ${response.status}`);
+            }
+
+            const data = await response.json();
+            // data.images is an array of base64 PNG strings
+            generatedImages = data.images.map(b64 => `data:image/png;base64,${b64}`);
+          } else {
+            // Standalone / Offline Demo Mode simulation
+            await new Promise(resolve => setTimeout(resolve, 1600)); // simulate generation time
+            for (let i = 0; i < state.count; i++) {
+              const sample = DEMO_SAMPLES[i % DEMO_SAMPLES.length];
+              generatedImages.push(sample.url);
+            }
+            showToast('Generated using Demo Studio Mode (Connect FastAPI for live HF FLUX)', 'success');
+          }
+
+          clearInterval(timerInterval);
+          const totalElapsed = elapsedSeconds();
+
+          // Update stage UI
+          displayRenderedImages(generatedImages, currentPrompt, state.aspectRatio, totalElapsed);
+
+          // Add to History
+          const historyEntry = {
+            id: Date.now(),
+            prompt: currentPrompt,
+            aspectRatio: state.aspectRatio,
+            count: generatedImages.length,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            images: generatedImages
+          };
+          state.history.unshift(historyEntry);
+          updateHistoryUI();
+
+          showToast(`Successfully rendered ${generatedImages.length} image(s)!`, 'success');
+
+        } catch (error) {
+          clearInterval(timerInterval);
+          console.error('Generation failed:', error);
+          showToast(`Generation failed: ${error.message}`, 'error');
+          // Revert to empty or previous stage
+          if (state.activeImages.length > 0) {
+            setStageState('rendered');
+          } else {
+            setStageState('empty');
+          }
+        } finally {
+          state.isGenerating = false;
+          generateBtn.disabled = false;
+          generateBtnText.textContent = 'Generate';
+        }
+      }
+
+      /* ========================================================================
+         6. Rendering Stage & Image Display
+         ======================================================================== */
+      function setStageState(stage) {
+        emptyState.style.display = stage === 'empty' ? 'flex' : 'none';
+        generatingState.style.display = stage === 'generating' ? 'flex' : 'none';
+        renderedStage.style.display = stage === 'rendered' ? 'flex' : 'none';
+      }
+
+      function displayRenderedImages(images, prompt, ratio, elapsed) {
+        state.activeImages = images;
+        setStageState('rendered');
+
+        renderedModelChip.textContent = 'FLUX.1-schnell';
+        renderedRatioChip.textContent = `${ratio} Aspect`;
+        renderedTimeChip.textContent = `${elapsed}s`;
+
+        // Configure grid class
+        imageGrid.className = `image-grid count-${images.length}`;
+        imageGrid.innerHTML = '';
+
+        // Calculate aspect-ratio styling
+        let aspectCss = '1 / 1';
+        if (ratio === '16:9') aspectCss = '16 / 9';
+        if (ratio === '9:16') aspectCss = '9 / 16';
+        if (ratio === '4:3') aspectCss = '4 / 3';
+
+        images.forEach((imgSrc, idx) => {
+          const card = document.createElement('div');
+          card.className = 'image-card';
+          card.style.aspectRatio = aspectCss;
+
+          card.innerHTML = `
+            <img src="${imgSrc}" alt="Rendered artwork ${idx + 1}" loading="lazy" />
+            <div class="image-overlay">
+              <div class="overlay-top">
+                <button class="overlay-btn zoom-btn" title="Inspect Fullscreen" data-index="${idx}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                </button>
+              </div>
+              <div class="overlay-bottom">
+                <span class="overlay-tag">FLUX #${idx + 1}</span>
+                <button class="download-action-btn download-btn" data-index="${idx}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Download</span>
+                </button>
+              </div>
+            </div>
+          `;
+
+          // Click on card or zoom opens lightbox
+          card.addEventListener('click', (e) => {
+            if (!e.target.closest('.download-btn')) {
+              openLightbox(imgSrc);
+            }
+          });
+
+          // Download action
+          const dlBtn = card.querySelector('.download-btn');
+          dlBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            downloadImage(imgSrc, `image-studio-${idx + 1}.png`);
+          });
+
+          imageGrid.appendChild(card);
+        });
+      }
+
+      // Stage Reset
+      clearStageBtn.addEventListener('click', () => {
+        state.activeImages = [];
+        setStageState('empty');
+        showToast('Stage reset to studio canvas');
+      });
+
+      // Copy Prompt
+      copyPromptBtn.addEventListener('click', () => {
+        const text = promptInput.value.trim();
+        if (text) {
+          navigator.clipboard.writeText(text);
+          showToast('Prompt copied to clipboard');
+        }
+      });
+
+      /* ========================================================================
+         7. History Drawer & Gallery
+         ======================================================================== */
+      historyBtn.addEventListener('click', openHistoryDrawer);
+      closeDrawerBtn.addEventListener('click', closeHistoryDrawer);
+      historyOverlay.addEventListener('click', closeHistoryDrawer);
+
+      function openHistoryDrawer() {
+        historyDrawer.classList.add('open');
+        historyOverlay.classList.add('open');
+      }
+
+      function closeHistoryDrawer() {
+        historyDrawer.classList.remove('open');
+        historyOverlay.classList.remove('open');
+      }
+
+      function updateHistoryUI() {
+        historyCountBadge.textContent = state.history.length;
+        if (state.history.length === 0) {
+          historyList.innerHTML = '<p style="color: var(--text-muted); font-size: 13px; text-align: center; margin-top: 40px;">No generations yet in this session.</p>';
+          return;
+        }
+
+        historyList.innerHTML = '';
+        state.history.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'history-item';
+          div.innerHTML = `
+            <img class="history-item-thumb" src="${item.images[0]}" alt="Thumbnail" />
+            <div class="history-item-info">
+              <div class="history-item-prompt">${escapeHtml(item.prompt)}</div>
+              <div class="history-item-meta">
+                <span>${item.aspectRatio} · ${item.count} img</span>
+                <span>${item.time}</span>
+              </div>
+            </div>
+          `;
+
+          div.addEventListener('click', () => {
+            promptInput.value = item.prompt;
+            promptInput.dispatchEvent(new Event('input'));
+            displayRenderedImages(item.images, item.prompt, item.aspectRatio, 'cached');
+            closeHistoryDrawer();
+            showToast('Restored generation from history');
+          });
+
+          historyList.appendChild(div);
+        });
+      }
+
+      /* ========================================================================
+         8. Fullscreen Lightbox & Downloads
+         ======================================================================== */
+      let activeLightboxSrc = '';
+
+      function openLightbox(src) {
+        activeLightboxSrc = src;
+        lightboxImg.src = src;
+        lightboxModal.classList.add('open');
+      }
+
+      function closeLightbox() {
+        lightboxModal.classList.remove('open');
+      }
+
+      lightboxCloseBtn.addEventListener('click', closeLightbox);
+      lightboxModal.addEventListener('click', (e) => {
+        if (e.target === lightboxModal) closeLightbox();
+      });
+
+      lightboxDownloadBtn.addEventListener('click', () => {
+        if (activeLightboxSrc) {
+          downloadImage(activeLightboxSrc, 'image-studio-ultra-hd.png');
+        }
+      });
+
+      function downloadImage(dataUrlOrUrl, filename) {
+        const link = document.createElement('a');
+        link.href = dataUrlOrUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Download initiated');
+      }
+
+      // Demo sample toggle
+      demoToggleBtn.addEventListener('click', () => {
+        displayRenderedImages(
+          [DEMO_SAMPLES[0].url, DEMO_SAMPLES[1].url],
+          DEMO_SAMPLES[0].prompt,
+          '16:9',
+          '0.8'
+        );
+        promptInput.value = DEMO_SAMPLES[0].prompt;
+        promptInput.dispatchEvent(new Event('input'));
+        showToast('Loaded demo creative showcase');
+      });
+
+      /* ========================================================================
+         9. Toast Notification Helper
+         ======================================================================== */
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        let iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+        if (type === 'error') {
+          iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>`;
+        } else if (type === 'success') {
+          iconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+        }
+
+        toast.innerHTML = `${iconSvg}<span>${escapeHtml(message)}</span>`;
+        container.appendChild(toast);
+
+        // Slide in
+        requestAnimationFrame(() => toast.classList.add('show'));
+
+        // Slide out after 3.2s
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+          }, 400);
+        }, 3200);
+      }
+
+      function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/[&<>"']/g, function (m) {
+          switch (m) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#039;';
+            default: return m;
+          }
+        });
+      }
+
+    })();
+  </script>
+</body>
+</html>
+
